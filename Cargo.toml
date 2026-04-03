@@ -1,0 +1,20 @@
+[package]
+name = "graph-orientation"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+default-run = "main"
+
+[features]
+default = ["rust-backend"]
+rust-backend = []
+ffi-backend = ["dep:libloading"]
+futhark-backend = ["ffi-backend"]
+idris2-backend = ["ffi-backend"]
+k-backend = ["ffi-backend"]
+
+[dependencies]
+libloading = { version = "0.8", optional = true }
+
+[build-dependencies]
+futhark-bindgen = { version = "*", default-features = false, features = ["build"] }
