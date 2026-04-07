@@ -1,0 +1,9 @@
+package graph_orientation
+
+version = 0.1.0
+authors = "martonaronvarga"
+sourcedir = "src"
+main = Main
+modules = GraphOrientation, GraphOrientationFFI, GraphOrientationFFIBridge
+executable = graph_orientation_idris
+opts = "--cg refc"

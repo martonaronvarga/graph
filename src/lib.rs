@@ -578,7 +578,7 @@ fn solve_via_shared_library(
     use libloading::Library;
 
     // ABI expected from native backends (Idris2/K later):
-    // int graph_orientation_solve(const go_raw_problem* p, int mode, go_raw_solution* out);
+    // int graph_orientation_solve(const RawProblem* p, int mode, RawSolution* out);
     type SolveFn = unsafe extern "C" fn(*const RawProblem, i32, *mut RawSolution) -> i32;
 
     let (lib_env, lib_default) = match backend {
@@ -758,7 +758,7 @@ fn solve_via_futhark_bindgen(problem: &Problem, algorithm: RustAlgorithm) -> io:
 }
 
 #[cfg(not(feature = "ffi-backend"))]
-fn solve_via_shared_library(_: &Problem, _algorithm: RustAlgorithm) -> io::Result<Solution> {
+fn solve_via_shared_library(_: Engine, _: &Problem, _: RustAlgorithm) -> io::Result<Solution> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
         "external backends are disabled at build time",

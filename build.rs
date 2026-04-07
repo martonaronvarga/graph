@@ -5,7 +5,7 @@ fn main() {
     println!("cargo:rerun-if-changed=kernels/futhark/graph_orientation_futhark.fut");
 
     futhark_bindgen::build(
-        futhark_bindgen::Backend::C,
+        futhark_bindgen::Backend::Multicore,
         "kernels/futhark/graph_orientation_futhark.fut",
         "graph_orientation_futhark.rs",
     );

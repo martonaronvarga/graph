@@ -26,17 +26,17 @@ const Edge = struct {
 };
 
 const FlowGraph = struct {
-    adj: []std.ArrayList(Edge),
+    adj: []std.ArrayListUnmanaged(Edge),
     allocator: std.mem.Allocator,
 
     fn init(allocator: std.mem.Allocator, n: usize) !FlowGraph {
-        var adj = try allocator.alloc(std.ArrayList(Edge), n);
-        for (adj) |*lst| lst.* = std.ArrayList(Edge).init(allocator);
+        const adj = try allocator.alloc(std.ArrayListUnmanaged(Edge), n);
+        for (adj) |*lst| lst.* = .{};
         return .{ .adj = adj, .allocator = allocator };
     }
 
     fn deinit(self: *FlowGraph) void {
-        for (self.adj) |*lst| lst.deinit();
+        for (self.adj) |*lst| lst.deinit(self.allocator);
         self.allocator.free(self.adj);
     }
 
@@ -47,8 +47,8 @@ const FlowGraph = struct {
     fn addEdge(self: *FlowGraph, u: usize, v: usize, cap: i64) !void {
         const u_rev = self.adj[u].items.len;
         const v_rev = self.adj[v].items.len;
-        try self.adj[u].append(.{ .to = v, .rev = v_rev, .cap = cap });
-        try self.adj[v].append(.{ .to = u, .rev = u_rev, .cap = 0 });
+        try self.adj[u].append(self.allocator, .{ .to = v, .rev = v_rev, .cap = cap });
+        try self.adj[v].append(self.allocator, .{ .to = u, .rev = u_rev, .cap = 0 });
     }
 };
 
@@ -66,6 +66,11 @@ const BuiltNetwork = struct {
     }
 };
 
+fn validProblemPointers(p: *const RawProblem, out: *RawSolution) bool {
+    _ = out;
+    return p.bounds != null and p.edges_u != null and p.edges_v != null;
+}
+
 fn buildNetwork(allocator: std.mem.Allocator, p: *const RawProblem) !BuiltNetwork {
     const m = p.m;
     const source: usize = 0;
@@ -73,7 +78,7 @@ fn buildNetwork(allocator: std.mem.Allocator, p: *const RawProblem) !BuiltNetwor
     const vertex_offset: usize = 1 + m;
     const sink: usize = 1 + m + p.n;
     var g = try FlowGraph.init(allocator, sink + 1);
-    var edge_nodes = try allocator.alloc(usize, m);
+    const edge_nodes = try allocator.alloc(usize, m);
 
     var k: usize = 0;
     while (k < m) : (k += 1) {
@@ -103,20 +108,20 @@ fn buildNetwork(allocator: std.mem.Allocator, p: *const RawProblem) !BuiltNetwor
 
 fn reachableFrom(allocator: std.mem.Allocator, g: *const FlowGraph, s: usize) ![]bool {
     const n = g.adj.len;
-    var seen = try allocator.alloc(bool, n);
+    const seen = try allocator.alloc(bool, n);
     @memset(seen, false);
-    var q = std.ArrayList(usize).init(allocator);
-    defer q.deinit();
+    var q = std.ArrayListUnmanaged(usize){};
+    defer q.deinit(allocator);
 
     seen[s] = true;
-    try q.append(s);
+    try q.append(allocator, s);
     var head: usize = 0;
     while (head < q.items.len) : (head += 1) {
         const u = q.items[head];
         for (g.adj[u].items) |e| {
             if (e.cap > 0 and !seen[e.to]) {
                 seen[e.to] = true;
-                try q.append(e.to);
+                try q.append(allocator, e.to);
             }
         }
     }
@@ -126,21 +131,21 @@ fn reachableFrom(allocator: std.mem.Allocator, g: *const FlowGraph, s: usize) ![
 fn maxFlowEdmondsKarp(g: *FlowGraph, s: usize, t: usize, allocator: std.mem.Allocator) !i64 {
     const n = g.len();
     var total: i64 = 0;
-    var parent_v = try allocator.alloc(usize, n);
+    const parent_v = try allocator.alloc(usize, n);
     defer allocator.free(parent_v);
-    var parent_e = try allocator.alloc(usize, n);
+    const parent_e = try allocator.alloc(usize, n);
     defer allocator.free(parent_e);
-    var seen = try allocator.alloc(bool, n);
+    const seen = try allocator.alloc(bool, n);
     defer allocator.free(seen);
 
     while (true) {
         @memset(seen, false);
-        var q = std.ArrayList(usize).init(allocator);
-        defer q.deinit();
+        var q = std.ArrayListUnmanaged(usize){};
+        defer q.deinit(allocator);
         var head: usize = 0;
 
         seen[s] = true;
-        try q.append(s);
+        try q.append(allocator, s);
 
         while (head < q.items.len and !seen[t]) : (head += 1) {
             const u = q.items[head];
@@ -149,7 +154,7 @@ fn maxFlowEdmondsKarp(g: *FlowGraph, s: usize, t: usize, allocator: std.mem.Allo
                     seen[e.to] = true;
                     parent_v[e.to] = u;
                     parent_e[e.to] = idx;
-                    try q.append(e.to);
+                    try q.append(allocator, e.to);
                     if (e.to == t) break;
                 }
             }
@@ -185,19 +190,19 @@ fn maxFlowEdmondsKarp(g: *FlowGraph, s: usize, t: usize, allocator: std.mem.Allo
 
 fn dinicBfs(g: *const FlowGraph, s: usize, t: usize, level: []i32, allocator: std.mem.Allocator) !bool {
     @memset(level, -1);
-    var q = std.ArrayList(usize).init(allocator);
-    defer q.deinit();
+    var q = std.ArrayListUnmanaged(usize){};
+    defer q.deinit(allocator);
     var head: usize = 0;
 
     level[s] = 0;
-    try q.append(s);
+    try q.append(allocator, s);
 
     while (head < q.items.len) : (head += 1) {
         const u = q.items[head];
         for (g.adj[u].items) |e| {
             if (e.cap > 0 and level[e.to] < 0) {
                 level[e.to] = level[u] + 1;
-                try q.append(e.to);
+                try q.append(allocator, e.to);
             }
         }
     }
@@ -226,9 +231,9 @@ fn dinicDfs(g: *FlowGraph, v: usize, t: usize, pushed: i64, level: []i32, it: []
 
 fn maxFlowDinic(g: *FlowGraph, s: usize, t: usize, allocator: std.mem.Allocator) !i64 {
     const n = g.len();
-    var level = try allocator.alloc(i32, n);
+    const level = try allocator.alloc(i32, n);
     defer allocator.free(level);
-    var it = try allocator.alloc(usize, n);
+    const it = try allocator.alloc(usize, n);
     defer allocator.free(it);
 
     var flow: i64 = 0;
@@ -246,14 +251,14 @@ fn maxFlowDinic(g: *FlowGraph, s: usize, t: usize, allocator: std.mem.Allocator)
     return flow;
 }
 
-fn enqueue(v: usize, s: usize, t: usize, excess: []i64, queued: []bool, active: *std.ArrayList(usize)) !void {
+fn enqueue(allocator: std.mem.Allocator, v: usize, s: usize, t: usize, excess: []i64, queued: []bool, active: *std.ArrayListUnmanaged(usize)) !void {
     if (v != s and v != t and excess[v] > 0 and !queued[v]) {
         queued[v] = true;
-        try active.append(v);
+        try active.append(allocator, v);
     }
 }
 
-fn pushPR(g: *FlowGraph, u: usize, idx: usize, s: usize, t: usize, height: []usize, excess: []i64, queued: []bool, active: *std.ArrayList(usize)) !bool {
+fn pushPR(allocator: std.mem.Allocator, g: *FlowGraph, u: usize, idx: usize, s: usize, t: usize, height: []usize, excess: []i64, queued: []bool, active: *std.ArrayListUnmanaged(usize)) !bool {
     const v = g.adj[u].items[idx].to;
     const cap = g.adj[u].items[idx].cap;
     if (cap == 0 or height[u] != height[v] + 1) return false;
@@ -264,7 +269,7 @@ fn pushPR(g: *FlowGraph, u: usize, idx: usize, s: usize, t: usize, height: []usi
     g.adj[v].items[rev].cap += amount;
     excess[u] -= amount;
     excess[v] += amount;
-    try enqueue(v, s, t, excess, queued, active);
+    try enqueue(allocator, v, s, t, excess, queued, active);
     return true;
 }
 
@@ -276,7 +281,7 @@ fn relabelPR(g: *FlowGraph, u: usize, height: []usize) void {
     height[u] = if (min_h == std.math.maxInt(usize)) std.math.maxInt(usize) / 4 else min_h + 1;
 }
 
-fn dischargePR(g: *FlowGraph, u: usize, s: usize, t: usize, height: []usize, excess: []i64, next: []usize, queued: []bool, active: *std.ArrayList(usize)) !void {
+fn dischargePR(allocator: std.mem.Allocator, g: *FlowGraph, u: usize, s: usize, t: usize, height: []usize, excess: []i64, next: []usize, queued: []bool, active: *std.ArrayListUnmanaged(usize)) !void {
     while (excess[u] > 0) {
         if (next[u] == g.adj[u].items.len) {
             relabelPR(g, u, height);
@@ -284,7 +289,7 @@ fn dischargePR(g: *FlowGraph, u: usize, s: usize, t: usize, height: []usize, exc
             continue;
         }
         const idx = next[u];
-        if (!(try pushPR(g, u, idx, s, t, height, excess, queued, active))) {
+        if (!(try pushPR(allocator, g, u, idx, s, t, height, excess, queued, active))) {
             next[u] += 1;
         }
     }
@@ -292,13 +297,13 @@ fn dischargePR(g: *FlowGraph, u: usize, s: usize, t: usize, height: []usize, exc
 
 fn maxFlowPushRelabel(g: *FlowGraph, s: usize, t: usize, allocator: std.mem.Allocator) !i64 {
     const n = g.len();
-    var height = try allocator.alloc(usize, n);
+    const height = try allocator.alloc(usize, n);
     defer allocator.free(height);
-    var excess = try allocator.alloc(i64, n);
+    const excess = try allocator.alloc(i64, n);
     defer allocator.free(excess);
-    var next = try allocator.alloc(usize, n);
+    const next = try allocator.alloc(usize, n);
     defer allocator.free(next);
-    var queued = try allocator.alloc(bool, n);
+    const queued = try allocator.alloc(bool, n);
     defer allocator.free(queued);
 
     @memset(height, 0);
@@ -306,8 +311,8 @@ fn maxFlowPushRelabel(g: *FlowGraph, s: usize, t: usize, allocator: std.mem.Allo
     @memset(next, 0);
     @memset(queued, false);
 
-    var active = std.ArrayList(usize).init(allocator);
-    defer active.deinit();
+    var active = std.ArrayListUnmanaged(usize){};
+    defer active.deinit(allocator);
     var head: usize = 0;
 
     height[s] = n;
@@ -321,14 +326,14 @@ fn maxFlowPushRelabel(g: *FlowGraph, s: usize, t: usize, allocator: std.mem.Allo
         g.adj[s].items[idx].cap -= cap;
         g.adj[v].items[rev].cap += cap;
         excess[v] += cap;
-        try enqueue(v, s, t, excess, queued, &active);
+        try enqueue(allocator, v, s, t, excess, queued, &active);
     }
 
     while (head < active.items.len) : (head += 1) {
         const u = active.items[head];
         queued[u] = false;
-        try dischargePR(g, u, s, t, height, excess, next, queued, &active);
-        try enqueue(u, s, t, excess, queued, &active);
+        try dischargePR(allocator, g, u, s, t, height, excess, next, queued, &active);
+        try enqueue(allocator, u, s, t, excess, queued, &active);
     }
 
     return excess[t];
@@ -382,7 +387,15 @@ fn fillViolators(allocator: std.mem.Allocator, p: *const RawProblem, built: *con
     out.directed_len = 0;
 }
 
-pub export fn graph_orientation_solve(p: *const RawProblem, mode: i32, out: *RawSolution) i32 {
+pub export fn graph_orientation_solve(p_opt: ?*const RawProblem, mode: i32, out_opt: ?*RawSolution) i32 {
+    const p = p_opt orelse return 1;
+    const out = out_opt orelse return 1;
+
+    var i: usize = 0;
+    while (i < p.m) : (i += 1) {
+        if (p.edges_u[i] >= p.n or p.edges_v[i] >= p.n) return 4;
+    }
+
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();

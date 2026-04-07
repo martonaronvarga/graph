@@ -1,1 +1,8 @@
 /target
+build
+result
+*.o
+*.so
+*.old
+*.data
+*.txt
