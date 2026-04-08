@@ -199,14 +199,21 @@
           '';
       in {
         packages = rec {
-          default = pkgs.runCommand "graph-orientation" {nativeBuildInputs = [pkgs.makeWrapper];} ''
-            mkdir -p $out/bin
-            makeWrapper ${rustPackage}/bin/main $out/bin/graph-orientation \
-              --set GRAPH_ORIENTATION_IDRIS2_LIB ${idris2Kernel}/lib/libgraph-orientation-idris2.so \
-              --set GRAPH_ORIENTATION_ZIG_LIB ${zigKernel}/lib/libgraph-orientation-zig.so \
-              --set-default GRAPH_ORIENTATION_BACKEND rust
-            # --set GRAPH_ORIENTATION_K_LIB ''${kKernel}/lib/libgraph-orientation-k.so \
-          '';
+          default = pkgs.stdenv.mkDerivation {
+            pname = "graph-orientation";
+            version = "1.0";
+            dontUnpack = true;
+            nativeBuildInputs = [pkgs.makeWrapper];
+            installPhase = ''
+              mkdir -p $out/bin
+              # futhark is linked from within rust
+              makeWrapper ${rustPackage}/bin/main $out/bin/graph-orientation \
+                --set GRAPH_ORIENTATION_IDRIS2_LIB ${idris2Kernel}/lib/libgraph-orientation-idris2.so \
+                --set GRAPH_ORIENTATION_ZIG_LIB ${zigKernel}/lib/libgraph-orientation-zig.so \
+                --set-default GRAPH_ORIENTATION_BACKEND rust
+              # --set GRAPH_ORIENTATION_K_LIB ''${kKernel}/lib/libgraph-orientation-k.so \
+            '';
+          };
           graph-orientation = default;
           augmenting = linkBin "augmenting" "augmenting";
           leveling = linkBin "leveling" "leveling";
@@ -214,7 +221,7 @@
           rust = rustPackage;
 
           ffi-kernels = pkgs.symlinkJoin {
-            name = "graph-orientation-kernels";
+            pname = "graph-orientation-kernels";
             paths = [
               # kKernel
               idris2Kernel
@@ -247,6 +254,11 @@
             openssl
             treefmt
             nixfmt
+            (pkgs.python3.withPackages (python-pkgs:
+              with python-pkgs; [
+                numpy
+                matplotlib
+              ]))
           ];
           IDRIS2_SRC = "${idris2}";
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [

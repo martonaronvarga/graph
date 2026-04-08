@@ -670,7 +670,6 @@ fn solve_via_shared_library(
 
 #[cfg(feature = "futhark-backend")]
 fn solve_via_futhark_bindgen(problem: &Problem, algorithm: RustAlgorithm) -> io::Result<Solution> {
-    eprintln!("USING FUTHARK BINDGEN");
     let mode = match algorithm {
         RustAlgorithm::AugmentingPath => 0i32,
         RustAlgorithm::Leveling => 1i32,
@@ -696,7 +695,13 @@ fn solve_via_futhark_bindgen(problem: &Problem, algorithm: RustAlgorithm) -> io:
         );
     }
 
-    let ctx = graph_orientation_futhark::Context::new()
+    let mut options = graph_orientation_futhark::Options::new();
+
+    if let Ok(threads_str) = std::env::var("FUTHARK_NUM_THREADS")
+        && let Ok(threads) = threads_str.parse::<u32>() {
+            options = options.threads(threads);
+        }
+    let ctx = graph_orientation_futhark::Context::new_with_options(options)
         .map_err(|e| io::Error::other(format!("futhark context init failed: {e}")))?;
 
     // This generator expects explicit shape argument: [len]

@@ -1,6 +1,6 @@
 module GraphOrientationFFI
 
-import GraphOrientation
+import GraphOrientationFast
 import GraphOrientationFFIBridge
 import Data.List
 
@@ -116,7 +116,7 @@ ffi_solve p_problem mode p_sol = do
   let ffiPb = readRawProblem p_problem
   case ffiToKernel ffiPb of
     Just kernelProb => do
-      let sol = GraphOrientation.solve kernelProb mode
+      let sol = GraphOrientationFast.solve kernelProb mode
       writeRawSolution p_sol (kernelToFFI sol)
       pure 0
     Nothing => pure 1

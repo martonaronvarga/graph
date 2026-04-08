@@ -137,24 +137,27 @@ fn maxFlowEdmondsKarp(g: *FlowGraph, s: usize, t: usize, allocator: std.mem.Allo
     defer allocator.free(parent_e);
     const seen = try allocator.alloc(bool, n);
     defer allocator.free(seen);
+    const q_items = try allocator.alloc(usize, n);
+    defer allocator.free(q_items);
 
     while (true) {
         @memset(seen, false);
-        var q = std.ArrayListUnmanaged(usize){};
-        defer q.deinit(allocator);
-        var head: usize = 0;
+        var q_head: usize = 0;
+        var q_tail: usize = 0;
 
         seen[s] = true;
-        try q.append(allocator, s);
 
-        while (head < q.items.len and !seen[t]) : (head += 1) {
-            const u = q.items[head];
+        q_items[q_tail] = s;
+        q_tail += 1;
+
+        while (q_head < q_tail and !seen[t]) : (q_head += 1) {
+            const u = q_items[q_head];
             for (g.adj[u].items, 0..) |e, idx| {
                 if (e.cap > 0 and !seen[e.to]) {
                     seen[e.to] = true;
                     parent_v[e.to] = u;
                     parent_e[e.to] = idx;
-                    try q.append(allocator, e.to);
+                    q_items[q_tail] = e.to;
                     if (e.to == t) break;
                 }
             }

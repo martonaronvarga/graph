@@ -1,6 +1,6 @@
 module GraphOrientationFFIBridge
 
-import GraphOrientation
+import GraphOrientationFast
 import Data.Vect
 
 %default total
@@ -23,14 +23,14 @@ record Solution where
   violators : List Int
 
 export
-ffiToKernel : GraphOrientationFFIBridge.Problem -> Maybe GraphOrientation.Problem
+ffiToKernel : GraphOrientationFFIBridge.Problem -> Maybe GraphOrientationFast.Problem
 ffiToKernel (MkProblem n bounds m eu ev) = do
   boundsV <- listToVect (cast n) (map cast bounds)
   euV     <- listToVect (cast m) eu
   evV     <- listToVect (cast m) ev
-  pure (GraphOrientation.MkProblem (cast n) boundsV (cast m) euV evV)
+  pure (GraphOrientationFast.MkProblem (cast n) boundsV (cast m) euV evV)
 
 export
-kernelToFFI : GraphOrientation.Solution -> GraphOrientationFFIBridge.Solution
+kernelToFFI : GraphOrientationFast.Solution -> GraphOrientationFFIBridge.Solution
 kernelToFFI (MkSolution feasible dus dvs viols) =
   MkSolution feasible dus dvs viols

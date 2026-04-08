@@ -35,7 +35,9 @@ fn parse_args() -> Result<SolveConfig, String> {
                 cfg.algorithm = parse_algorithm(&v)?;
             }
             "--help" | "-h" => {
-                println!("Usage: graph-orientation [--engine rust|futhark|idris2|k|zig] [--algorithm augmenting|leveling|push-relabel]");
+                println!(
+                    "Usage: graph-orientation [--engine rust|futhark|idris2|k|zig] [--algorithm augmenting|leveling|push-relabel]"
+                );
                 std::process::exit(0);
             }
             other => return Err(format!("unknown argument: {other}")),
