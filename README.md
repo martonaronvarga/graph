@@ -22,7 +22,7 @@ The runtime is deterministic. The default solver path is Rust, but the binary ca
 
 Run:
 
-`./result/bin/graph_orientation --engine <engine> --algorithm <algorithm>`
+`./result/bin/graph-orientation --engine <engine> --algorithm <algorithm>`
 
 - Engines: `rust`, `futhark`, `idris2` `zig`
 - Algorithms: `augmenting` (Edmonds-Karp), `leveling` (Dinic), `push-relabel`
